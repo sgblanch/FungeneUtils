@@ -54,6 +54,8 @@ public class ReleasePipeline extends FungeneDB {
     private final PreparedStatement protAlignmentSelect;
     private final PreparedStatement protAlignedNuclIns;
     private final PreparedStatement newProtAlignedNuclIns;
+    private final Statement protidSelect;
+    private final String protidSelectSql = "select currval('prot_id_seq')";
     private static final ProteinUtils protUtils = ProteinUtils.getInstance();
     private Map<String, HMM> hmmsByNames = new HashMap();
     private Map<Integer, HMM> hmmsById = new HashMap();
@@ -103,7 +105,8 @@ public class ReleasePipeline extends FungeneDB {
         protAlignmentSelect = dbConn.prepareStatement("select hmm_id, (select seq from aligned_prot_sequence where seqid = aligned_prot_seqid) as aligned_prot from hmm_protein where pid=?");
 
         protAlignedNuclIns = dbConn.prepareStatement("insert into protein_aligned_nucl_seq values(?, ?, ?)");
-        newProtAlignedNuclIns = dbConn.prepareStatement("insert into protein_aligned_nucl_seq values(currval('prot_id_seq'), ?, ?)");
+        protidSelect = dbConn.createStatement();
+        newProtAlignedNuclIns = dbConn.prepareStatement("insert into protein_aligned_nucl_seq values(?, ?, ?)");
 
         Statement stmt = dbConn.createStatement();
         ResultSet rset = stmt.executeQuery("select * from hmm");
@@ -141,6 +144,8 @@ public class ReleasePipeline extends FungeneDB {
 
         protAlignedNuclIns.close();
         newProtAlignedNuclIns.close();
+        
+        protidSelect.close();
 
         dbConn.close();
     }
@@ -417,12 +422,22 @@ public class ReleasePipeline extends FungeneDB {
 
         int nuclSeqid = findSeqid(p.nuclSeq, nuclCRC32, false, false);
         int protSeqid = findSeqid(p.protSeq, protCRC32, true, false);
-
+   
         insertProt(p, nuclSeqid, protSeqid, release);
-
+        
         if (hits != null) {
             insertProtAlignments(hits, protSeqid, release);
         }
+        
+        // we need to get the pid instead of passing currval('prot_id_seq') to newProtAlignedNuclIns query because the INSERT RULE is very costly with currval('prot_id_seq'). 
+        ResultSet rset = protidSelect.executeQuery(this.protidSelectSql);
+        int pid = 0;
+        if (rset.next()) {
+            pid = rset.getInt("currval");
+        }
+        rset.close();
+        
+        
         for (AlignedProt prot : getProtAlignments(protSeqid)) {
             int lenDiff = (p.protLength * 3) - p.nuclSeq.length();
 
@@ -436,8 +451,9 @@ public class ReleasePipeline extends FungeneDB {
             insertSeq(alignedNucl, crc, false, true);
             int alignedNuclSeqid = findSeqid(alignedNucl, crc, false, true);
 
-            newProtAlignedNuclIns.setInt(1, alignedNuclSeqid);
-            newProtAlignedNuclIns.setInt(2, prot.hmmId);
+            newProtAlignedNuclIns.setInt(1, pid);
+            newProtAlignedNuclIns.setInt(2, alignedNuclSeqid);
+            newProtAlignedNuclIns.setInt(3, prot.hmmId);
             newProtAlignedNuclIns.addBatch();
         }
         newProtAlignedNuclIns.executeBatch();
@@ -445,6 +461,7 @@ public class ReleasePipeline extends FungeneDB {
         dbConn.commit();
         dbConn.setAutoCommit(true);
     }
+    
     private static final CRC32 crc32 = new CRC32();
 
     public static long getCRC32(String seq) {
@@ -473,10 +490,11 @@ public class ReleasePipeline extends FungeneDB {
         EntrezXMLReader reader = new EntrezXMLReader(System.in);
         while ((seq = reader.readNext()) != null) {
             readSeqs++;
-
+            
             List<Map<String, String>> cdss = seq.getFeatures("cds", null, null);
             if (cdss.size() > 0) {
                 for (Map<String, String> cds : cdss) {
+                    // if no protein feature detected, skip
                     if (!cds.containsKey("translation")) {
                         continue;
                     }
@@ -485,15 +503,17 @@ public class ReleasePipeline extends FungeneDB {
                         ReleaseProtein gbProtein = new ReleaseProtein(seq, cds);
                         ReleaseProtein dbProtein = pipeline.getProtein(gbProtein.protAccno);
                         Integer protSeqid = pipeline.findSeqid(gbProtein.protSeq, null, true, false);
-
+                        
+                        // If the protein already exists in database, update it
                         if (dbProtein != null && gbProtein.gbDate.after(dbProtein.updateDate)) {
-
+                            // If the sequences don't match, print error message and skip
                             if (!gbProtein.protSeq.equals(dbProtein.protSeq) || !gbProtein.nuclSeq.equals(dbProtein.nuclSeq)) {
                                 System.err.println(gbProtein.protAccno + "\tfatal\tUpdated version available but sequences don't match...please fix me");
                                 continue;
                             }
 
                             System.err.println(gbProtein.protAccno + "\tinfo\tUpdating to latest gb release version");
+                            // update the protein
                             pipeline.updateProtein(gbProtein, dbProtein.id, props.getReleaseNo());
                         }
 
@@ -531,7 +551,6 @@ public class ReleasePipeline extends FungeneDB {
                                 }
                             }
                         }
-
                     } catch (SQLException e) {
                         System.err.println("Error creating protein object from " + seq.getPrimaryAccession() + ": " + e.getMessage());
                         e.printStackTrace();
