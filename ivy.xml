@@ -1,0 +1,27 @@
+<ivy-module version="2.0">
+    <info organisation="edu.cme.rdp" module="FungeneUtils"/>
+    <dependencies>
+        <!--<dependency org="org.apache.ws.commons.schema" name="XmlSchema" rev="1.4.3"/>-->
+        <!--<dependency org="org.apache.ws.commons.axiom" name="axiom-api" rev="1.2.10"/>-->
+        <!--<dependency org="org.apache.ws.commons.axiom" name="axiom-impl" rev="1.2.10"/>-->
+        <!--<dependency org="org.apache.axis2" name="axis2-adb" rev="1.5.4"/>-->
+        <!--<dependency org="org.apache.axis2" name="axis2-jaxws" rev="1.5.4"/>-->
+        <!--<dependency org="org.apache.axis2" name="axis2-kernel" rev="1.5.4"/>-->
+        <!--<dependency org="org.apache.axis2" name="axis2-transport-http" rev="1.5.4"/>-->
+        <!--<dependency org="org.apache.axis2" name="axis2-transport-local" rev="1.5.4"/>-->
+        <!--<dependency org="commons-cli" name="commons-cli" rev="1.2"/>-->
+        <dependency org="commons-dbcp" name="commons-dbcp" rev="1.4"/>
+        <!--<dependency org="commons-httpclient" name="commons-httpclient" rev="3.1"/>-->
+        <dependency org="commons-io" name="commons-io" rev="2.4"/>
+        <!--<dependency org="commons-lang" name="commons-lang" rev="2.6"/>-->
+        <!--<dependency org="commons-logging" name="commons-logging" rev="1.1.1"/>-->
+        <dependency org="commons-pool" name="commons-pool" rev="1.5.5"/>
+        <!--<dependency org="org.apache.httpcomponents" name="httpcore" rev="4.0"/>-->
+        <!--<dependency org="org.apache.neethi" name="neethi" rev="2.0.4"/>-->
+        <!--<dependency org="org.xerial" name="sqlite-jdbc" rev="3.39.3.0"/>-->
+        <!--<dependency org="wsdl4j" name="wsdl4j" rev="1.6.2"/>-->
+        <dependency org="junit" name="junit" rev="4.13.2"/>
+        <dependency org="org.hamcrest" name="hamcrest-core" rev="1.3"/>
+        <dependency org="org.hamcrest" name="hamcrest-library" rev="1.3"/>
+    </dependencies>
+</ivy-module>
